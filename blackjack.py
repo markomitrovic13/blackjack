@@ -196,6 +196,75 @@ class BlackjackGame:
         payout = self.get_payout()
         self.total_winnings += payout 
     
+    def log_game_result(self):
+        """Log the final game state to terminal."""
+        
+        # Log dealer's final hand
+        dealer_cards = [str(card) for card in self.dealer_hand.cards]
+        dealer_value = self.dealer_hand.get_value()
+        print(f"Dealer's Final Hand: {', '.join(dealer_cards)} (Value: {dealer_value})")
+        
+        # Log player's final hand(s)
+        if self.is_split_game:
+            print("Player's Final Hands:")
+            for i, hand in enumerate(self.split_hands):
+                cards = [str(card) for card in hand.cards]
+                value = hand.get_value()
+                print(f"  Hand {i+1}: {', '.join(cards)} (Value: {value})")
+        else:
+            player_cards = [str(card) for card in self.player_hand.cards]
+            player_value = self.player_hand.get_value()
+            print(f"Player's Final Hand: {', '.join(player_cards)} (Value: {player_value})")
+        
+        # Log bet and payout
+        payout = self.get_payout()
+        print(f"Bet Amount: ${self.bet_size}")
+        print(f"Payout: ${payout}")
+        
+        # Log game result
+        if self.is_split_game:
+            dealer_value = self.dealer_hand.get_value()
+            results = []
+            for i, hand in enumerate(self.split_hands):
+                player_value = hand.get_value()
+                if hand.is_bust():
+                    results.append(f"Hand {i+1}: BUST")
+                elif self.dealer_hand.is_bust():
+                    results.append(f"Hand {i+1}: WIN")
+                elif hand.is_blackjack() and not self.dealer_hand.is_blackjack():
+                    results.append(f"Hand {i+1}: BLACKJACK")
+                elif self.dealer_hand.is_blackjack() and not hand.is_blackjack():
+                    results.append(f"Hand {i+1}: LOSE")
+                elif player_value > dealer_value:
+                    results.append(f"Hand {i+1}: WIN")
+                elif dealer_value > player_value:
+                    results.append(f"Hand {i+1}: LOSE")
+                else:
+                    results.append(f"Hand {i+1}: TIE")
+            print(f"Result: {' | '.join(results)}")
+        else:
+            player_value = self.player_hand.get_value()
+            dealer_value = self.dealer_hand.get_value()
+            
+            if self.player_hand.is_bust():
+                result = "BUST - Player loses"
+            elif self.dealer_hand.is_bust():
+                result = "Dealer busts - Player wins"
+            elif self.player_hand.is_blackjack() and not self.dealer_hand.is_blackjack():
+                result = "BLACKJACK - Player wins"
+            elif self.dealer_hand.is_blackjack() and not self.player_hand.is_blackjack():
+                result = "Dealer blackjack - Player loses"
+            elif player_value > dealer_value:
+                result = "Player wins"
+            elif dealer_value > player_value:
+                result = "Dealer wins"
+            else:
+                result = "TIE"
+            print(f"Result: {result}")
+        
+        print(f"Total Winnings: ${self.total_winnings}")
+        print("="*50)
+    
     def start_new_game(self):
         """Start a new game."""
         shuffle_notification = ""
@@ -323,6 +392,9 @@ class BlackjackGame:
         
         # Update money tracking
         self.update_money_tracking()
+        
+        # Log the final game state
+        self.log_game_result()
         
         if self.is_split_game:
             # Handle split game results
