@@ -119,6 +119,82 @@ class BlackjackGame:
         self.split_hands = []
         self.current_hand_index = 0
         self.is_split_game = False
+        self.bet_size = 0  # Track the bet size for the current hand
+        self.total_winnings = 0  # Track total winnings
+    
+    def set_bet(self, amount: int) -> bool:
+        """Set the bet size for the current hand."""
+        if amount <= 0:
+            return False
+        self.bet_size = amount
+        return True
+    
+    def get_payout(self) -> int:
+        """Calculate payout based on game result and bet size."""
+        if self.bet_size == 0:
+            return 0
+        
+        if self.is_split_game:
+            # Handle split game payouts
+            dealer_value = self.dealer_hand.get_value()
+            total_payout = 0
+            
+            # Each split hand has its own bet (half of total bet)
+            split_bet = self.bet_size // 2
+            
+            for hand in self.split_hands:
+                player_value = hand.get_value()
+                
+                if hand.is_bust():
+                    # Lose bet for this hand
+                    pass
+                elif self.dealer_hand.is_bust():
+                    # Win bet for this hand
+                    total_payout += split_bet
+                elif hand.is_blackjack() and not self.dealer_hand.is_blackjack():
+                    # Blackjack pays 3:2
+                    total_payout += int(split_bet * 1.5)
+                elif self.dealer_hand.is_blackjack() and not hand.is_blackjack():
+                    # Lose bet for this hand
+                    pass
+                elif player_value > dealer_value:
+                    # Win bet for this hand
+                    total_payout += split_bet
+                elif dealer_value > player_value:
+                    # Lose bet for this hand
+                    pass
+                else:
+                    # Push (tie) - return original bet
+                    total_payout += split_bet
+            
+            return total_payout
+        else:
+            # Handle regular game payout
+            player_value = self.player_hand.get_value()
+            dealer_value = self.dealer_hand.get_value()
+            
+            if self.player_hand.is_bust():
+                return -1*self.bet_size  # Lose bet
+            elif self.dealer_hand.is_bust():
+                return self.bet_size  # Win bet
+            elif self.player_hand.is_blackjack() and not self.dealer_hand.is_blackjack():
+                return int(self.bet_size * 1.5)  # Blackjack pays 3:2
+            elif self.dealer_hand.is_blackjack() and not self.player_hand.is_blackjack():
+                return -1*self.bet_size  # Lose bet
+            elif player_value > dealer_value:
+                return self.bet_size  # Win bet
+            elif dealer_value > player_value:
+                return -1*self.bet_size  # Lose bet
+            else:
+                return 0  # Push (tie) - return original bet
+    
+    def update_money_tracking(self):
+        """Update total winnings and losses based on current game result."""
+        if self.bet_size == 0:
+            return
+        
+        payout = self.get_payout()
+        self.total_winnings += payout 
     
     def start_new_game(self):
         """Start a new game."""
@@ -236,6 +312,9 @@ class BlackjackGame:
     def end_game(self):
         """End the game and determine the winner."""
         self.game_over = True
+        
+        # Update money tracking
+        self.update_money_tracking()
         
         if self.is_split_game:
             # Handle split game results
@@ -380,6 +459,19 @@ class BlackjackGUI:
         )
         self.deck_status_label.pack(side=tk.LEFT, padx=10)
         
+        # Winnings/Losses frame
+        money_frame = tk.Frame(self.root, bg='#2c5530')
+        money_frame.pack(pady=5)
+        
+        self.winnings_label = tk.Label(
+            money_frame, 
+            text="Winnings: $0", 
+            font=("Arial", 14, "bold"), 
+            fg='#00FF00', 
+            bg='#2c5530'
+        )
+        self.winnings_label.pack(side=tk.LEFT, padx=10)
+        
         # Dealer section
         dealer_frame = tk.Frame(self.root, bg='#2c5530')
         dealer_frame.pack(pady=10, fill=tk.X, padx=20)
@@ -441,6 +533,38 @@ class BlackjackGUI:
             bg='#2c5530'
         )
         self.player_value_label.pack()
+        
+        # Betting frame
+        betting_frame = tk.Frame(self.root, bg='#2c5530')
+        betting_frame.pack(pady=10)
+        
+        tk.Label(
+            betting_frame,
+            text="Bet Amount:",
+            font=("Arial", 12),
+            fg='white',
+            bg='#2c5530'
+        ).pack(side=tk.LEFT, padx=5)
+        
+        self.bet_entry = tk.Entry(
+            betting_frame,
+            font=("Arial", 12),
+            width=10
+        )
+        self.bet_entry.pack(side=tk.LEFT, padx=5)
+        self.bet_entry.insert(0, "10")
+        
+        self.place_bet_button = tk.Button(
+            betting_frame,
+            text="PLACE BET",
+            command=self.place_bet,
+            font=("Arial", 12, "bold"),
+            bg='#FFD700',
+            fg='black',
+            relief=tk.RAISED,
+            bd=2
+        )
+        self.place_bet_button.pack(side=tk.LEFT, padx=10)
         
         # Buttons frame
         buttons_frame = tk.Frame(self.root, bg='#2c5530')
@@ -544,6 +668,13 @@ class BlackjackGUI:
         self.ties_label.config(text=f"Ties: {self.game.ties}")
         self.deck_status_label.config(text=f"Deck: {self.game.deck.get_remaining_cards()}")
         
+        # Update bet info
+        if self.game.bet_size > 0:
+            self.status_label.config(text=f"Current Bet: ${self.game.bet_size}", fg='yellow')
+        
+        # Update winnings/losses display
+        self.winnings_label.config(text=f"Winnings: ${self.game.total_winnings}")
+        
         # Update button states
         if self.game.game_over:
             self.hit_button.config(state=tk.DISABLED)
@@ -566,6 +697,18 @@ class BlackjackGUI:
                 self.split_button.config(state=tk.NORMAL)
             else:
                 self.split_button.config(state=tk.DISABLED)
+    
+    def place_bet(self):
+        """Place a bet and start the game."""
+        try:
+            amount = int(self.bet_entry.get())
+            if self.game.set_bet(amount):
+                self.update_display()
+                self.status_label.config(text=f"Bet placed: ${amount}", fg='green')
+            else:
+                self.status_label.config(text="Invalid bet amount!", fg='red')
+        except ValueError:
+            self.status_label.config(text="Please enter a valid number!", fg='red')
     
     def show_result(self):
         """Show the game result."""
@@ -621,6 +764,10 @@ class BlackjackGUI:
                 else:
                     result = "It's a tie!"
                     color = 'yellow'
+                
+                # Add payout information
+                payout = self.game.get_payout()
+                result += f" Payout: ${payout}"
                 
                 self.status_label.config(text=result, fg=color)
     
