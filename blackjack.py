@@ -52,6 +52,10 @@ class Deck:
     def get_remaining_percentage(self) -> float:
         """Get the percentage of cards remaining in the deck."""
         return (len(self.cards) / self.original_size) * 100
+
+    def get_remaining_cards(self) -> float:
+        """Get the number of cards remaining in the deck."""
+        return len(self.cards)
     
     def should_shuffle(self) -> bool:
         """Check if deck should be shuffled (when 50% or fewer cards remain)."""
@@ -538,7 +542,7 @@ class BlackjackGUI:
         self.player_score_label.config(text=f"Player: {self.game.player_wins}")
         self.dealer_score_label.config(text=f"Dealer: {self.game.dealer_wins}")
         self.ties_label.config(text=f"Ties: {self.game.ties}")
-        self.deck_status_label.config(text=f"Deck: {self.game.deck.get_remaining_percentage():.0f}%")
+        self.deck_status_label.config(text=f"Deck: {self.game.deck.get_remaining_cards()}")
         
         # Update button states
         if self.game.game_over:
