@@ -300,6 +300,26 @@ class BlackjackGUI:
     
     def setup_ui(self):
         """Set up the user interface."""
+        # Set up ttk styles
+        style = ttk.Style()
+        style.theme_use('clam')  # Use clam theme for better cross-platform consistency
+        
+        # Create custom button styles with colors
+        style.configure('Hit.TButton', background='#00C851', foreground='white')
+        style.map('Hit.TButton', background=[('active', '#00A041')])
+        
+        style.configure('Stand.TButton', background='#FF4444', foreground='white')
+        style.map('Stand.TButton', background=[('active', '#CC3333')])
+        
+        style.configure('Double.TButton', background='#FF6B35', foreground='white')
+        style.map('Double.TButton', background=[('active', '#E55A2B')])
+        
+        style.configure('Split.TButton', background='#9932CC', foreground='white')
+        style.map('Split.TButton', background=[('active', '#7A28A3')])
+        
+        style.configure('NewGame.TButton', background='#4285F4', foreground='white')
+        style.map('NewGame.TButton', background=[('active', '#3367D6')])
+        
         # Title
         title_label = tk.Label(
             self.root, 
@@ -416,78 +436,48 @@ class BlackjackGUI:
         buttons_frame = tk.Frame(self.root, bg='#2c5530')
         buttons_frame.pack(pady=20)
         
-        self.hit_button = tk.Button(
+        self.hit_button = ttk.Button(
             buttons_frame, 
             text="HIT", 
             command=self.hit,
-            font=("Arial", 14, "bold"),
-            bg='#00C851',
-            fg='white',
-            width=10,
-            height=2,
-            relief=tk.RAISED,
-            activebackground='#00A041',
-            activeforeground='white'
+            style="Hit.TButton",
+            width=10
         )
         self.hit_button.pack(side=tk.LEFT, padx=10)
         
-        self.stand_button = tk.Button(
+        self.stand_button = ttk.Button(
             buttons_frame, 
             text="STAND", 
             command=self.stand,
-            font=("Arial", 14, "bold"),
-            bg='#FF4444',
-            fg='white',
-            width=10,
-            height=2,
-            relief=tk.RAISED,
-            activebackground='#CC3333',
-            activeforeground='white'
+            style="Stand.TButton",
+            width=10
         )
         self.stand_button.pack(side=tk.LEFT, padx=10)
         
-        self.double_button = tk.Button(
+        self.double_button = ttk.Button(
             buttons_frame, 
             text="DOUBLE", 
             command=self.double,
-            font=("Arial", 14, "bold"),
-            bg='#FF6B35',
-            fg='white',
-            width=10,
-            height=2,
-            relief=tk.RAISED,
-            activebackground='#E55A2B',
-            activeforeground='white'
+            style="Double.TButton",
+            width=10
         )
         self.double_button.pack(side=tk.LEFT, padx=10)
         
-        self.split_button = tk.Button(
+        self.split_button = ttk.Button(
             buttons_frame, 
             text="SPLIT", 
             command=self.split,
-            font=("Arial", 14, "bold"),
-            bg='#9932CC',
-            fg='white',
-            width=10,
-            height=2,
-            relief=tk.RAISED,
-            activebackground='#7A28A3',
-            activeforeground='white'
+            style="Split.TButton",
+            width=10
         )
         self.split_button.pack(side=tk.LEFT, padx=10)
         
-        self.new_game_button = tk.Button(
+        self.new_game_button = ttk.Button(
             buttons_frame, 
             text="NEW GAME", 
             command=self.start_new_game,
-            font=("Arial", 14, "bold"),
-            bg='#4285F4',
-            fg='white',
-            width=10,
-            height=2,
-            relief=tk.RAISED,
-            activebackground='#3367D6',
-            activeforeground='white'
+            style="NewGame.TButton",
+            width=10
         )
         self.new_game_button.pack(side=tk.LEFT, padx=10)
         
