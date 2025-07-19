@@ -198,7 +198,6 @@ class BlackjackGame:
     
     def start_new_game(self):
         """Start a new game."""
-        # Check if deck needs shuffling
         shuffle_notification = ""
         if self.deck.should_shuffle():
             self.deck.reset()
@@ -212,24 +211,33 @@ class BlackjackGame:
         self.split_hands = []
         self.current_hand_index = 0
         self.is_split_game = False
-        
+        self.bet_size = 0  # Require new bet before dealing
+        # Do NOT deal cards yet
+        return shuffle_notification
+
+    def deal_initial_cards(self):
+        """Deal the initial cards after a bet is placed."""
+        self.player_hand.clear()
+        self.dealer_hand.clear()
+        self.split_hands = []
+        self.current_hand_index = 0
+        self.is_split_game = False
+        self.game_over = False
+        self.can_double = False
+        self.can_split = False
         # Deal initial cards
         self.player_hand.add_card(self.deck.deal())
         self.dealer_hand.add_card(self.deck.deal())
         self.player_hand.add_card(self.deck.deal())
         self.dealer_hand.add_card(self.deck.deal())
-        
         # Check if double is possible (only on first two cards)
         if len(self.player_hand.cards) == 2:
             self.can_double = True
-        
         # Check if split is possible (same value cards)
         if (len(self.player_hand.cards) == 2 and 
             self.player_hand.cards[0].get_value() == self.player_hand.cards[1].get_value()):
             self.can_split = True
-        
-        return shuffle_notification
-    
+
     def hit(self):
         """Player hits (takes another card)."""
         if not self.game_over:
@@ -606,15 +614,6 @@ class BlackjackGUI:
         )
         self.split_button.pack(side=tk.LEFT, padx=10)
         
-        self.new_game_button = ttk.Button(
-            buttons_frame, 
-            text="NEW GAME", 
-            command=self.start_new_game,
-            style="NewGame.TButton",
-            width=10
-        )
-        self.new_game_button.pack(side=tk.LEFT, padx=10)
-        
         # Status label
         self.status_label = tk.Label(
             self.root, 
@@ -628,7 +627,10 @@ class BlackjackGUI:
     def update_display(self):
         """Update the display with current game state."""
         # Update dealer hand
-        if self.game.game_over:
+        if self.game.bet_size == 0 or len(self.game.dealer_hand.cards) == 0:
+            dealer_text = "Cards: No cards dealt yet"
+            dealer_value = 0
+        elif self.game.game_over:
             dealer_cards = [str(card) for card in self.game.dealer_hand.cards]
             dealer_text = f"Cards: {', '.join(dealer_cards)}"
             dealer_value = self.game.dealer_hand.get_value()
@@ -637,13 +639,13 @@ class BlackjackGUI:
             dealer_cards = [str(self.game.dealer_hand.cards[0]), "Hidden"]
             dealer_text = f"Cards: {', '.join(dealer_cards)}"
             dealer_value = self.game.dealer_hand.cards[0].get_value()
-        
         self.dealer_hand_label.config(text=dealer_text)
         self.dealer_value_label.config(text=f"Value: {dealer_value}")
-        
         # Update player hand(s)
-        if self.game.is_split_game and self.game.split_hands:
-            # Display split hands
+        if self.game.bet_size == 0 or len(self.game.player_hand.cards) == 0:
+            player_text = "Cards: No cards dealt yet"
+            player_value = 0
+        elif self.game.is_split_game and self.game.split_hands:
             split_text = ""
             for i, hand in enumerate(self.game.split_hands):
                 cards = [str(card) for card in hand.cards]
@@ -654,55 +656,52 @@ class BlackjackGUI:
             self.player_hand_label.config(text=split_text.rstrip())
             self.player_value_label.config(text=f"Split Game - Hand {self.game.current_hand_index + 1}")
         else:
-            # Display regular hand
             player_cards = [str(card) for card in self.game.player_hand.cards]
             player_text = f"Cards: {', '.join(player_cards)}"
             player_value = self.game.player_hand.get_value()
-            
             self.player_hand_label.config(text=player_text)
             self.player_value_label.config(text=f"Value: {player_value}")
-        
         # Update stats
         self.player_score_label.config(text=f"Player: {self.game.player_wins}")
         self.dealer_score_label.config(text=f"Dealer: {self.game.dealer_wins}")
         self.ties_label.config(text=f"Ties: {self.game.ties}")
         self.deck_status_label.config(text=f"Deck: {self.game.deck.get_remaining_cards()}")
-        
+        # Update winnings/losses display
+        self.winnings_label.config(text=f"Winnings: ${self.game.total_winnings}")
         # Update bet info
         if self.game.bet_size > 0:
             self.status_label.config(text=f"Current Bet: ${self.game.bet_size}", fg='yellow')
-        
-        # Update winnings/losses display
-        self.winnings_label.config(text=f"Winnings: ${self.game.total_winnings}")
-        
         # Update button states
-        if self.game.game_over:
+        if self.game.bet_size == 0 or len(self.game.player_hand.cards) == 0 or self.game.game_over:
             self.hit_button.config(state=tk.DISABLED)
             self.stand_button.config(state=tk.DISABLED)
             self.double_button.config(state=tk.DISABLED)
             self.split_button.config(state=tk.DISABLED)
-            # NEW GAME button is always enabled
         else:
             self.hit_button.config(state=tk.NORMAL)
             self.stand_button.config(state=tk.NORMAL)
-            
-            # Enable/disable double button
             if self.game.can_double:
                 self.double_button.config(state=tk.NORMAL)
             else:
                 self.double_button.config(state=tk.DISABLED)
-            
-            # Enable/disable split button
             if self.game.can_split:
                 self.split_button.config(state=tk.NORMAL)
             else:
                 self.split_button.config(state=tk.DISABLED)
+        # Enable/disable betting controls
+        if self.game.bet_size == 0 or self.game.game_over:
+            self.place_bet_button.config(state=tk.NORMAL)
+            self.bet_entry.config(state=tk.NORMAL)
+        else:
+            self.place_bet_button.config(state=tk.DISABLED)
+            self.bet_entry.config(state=tk.DISABLED)
     
     def place_bet(self):
-        """Place a bet and start the game."""
+        """Place a bet and deal the initial cards."""
         try:
             amount = int(self.bet_entry.get())
             if self.game.set_bet(amount):
+                self.game.deal_initial_cards()
                 self.update_display()
                 self.status_label.config(text=f"Bet placed: ${amount}", fg='green')
             else:
