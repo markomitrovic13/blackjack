@@ -306,19 +306,29 @@ class BlackjackGUI:
         
         # Create custom button styles with colors
         style.configure('Hit.TButton', background='#00C851', foreground='white')
-        style.map('Hit.TButton', background=[('active', '#00A041')])
+        style.map('Hit.TButton', 
+                 background=[('active', '#00A041'), ('disabled', '#666666')],
+                 foreground=[('disabled', '#999999')])
         
         style.configure('Stand.TButton', background='#FF4444', foreground='white')
-        style.map('Stand.TButton', background=[('active', '#CC3333')])
+        style.map('Stand.TButton', 
+                 background=[('active', '#CC3333'), ('disabled', '#666666')],
+                 foreground=[('disabled', '#999999')])
         
         style.configure('Double.TButton', background='#FF6B35', foreground='white')
-        style.map('Double.TButton', background=[('active', '#E55A2B')])
+        style.map('Double.TButton', 
+                 background=[('active', '#E55A2B'), ('disabled', '#666666')],
+                 foreground=[('disabled', '#999999')])
         
         style.configure('Split.TButton', background='#9932CC', foreground='white')
-        style.map('Split.TButton', background=[('active', '#7A28A3')])
+        style.map('Split.TButton', 
+                 background=[('active', '#7A28A3'), ('disabled', '#666666')],
+                 foreground=[('disabled', '#999999')])
         
         style.configure('NewGame.TButton', background='#4285F4', foreground='white')
-        style.map('NewGame.TButton', background=[('active', '#3367D6')])
+        style.map('NewGame.TButton', 
+                 background=[('active', '#3367D6'), ('disabled', '#666666')],
+                 foreground=[('disabled', '#999999')])
         
         # Title
         title_label = tk.Label(
@@ -540,6 +550,7 @@ class BlackjackGUI:
             self.stand_button.config(state=tk.DISABLED)
             self.double_button.config(state=tk.DISABLED)
             self.split_button.config(state=tk.DISABLED)
+            # NEW GAME button is always enabled
         else:
             self.hit_button.config(state=tk.NORMAL)
             self.stand_button.config(state=tk.NORMAL)
