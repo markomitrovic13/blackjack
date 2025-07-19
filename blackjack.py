@@ -299,6 +299,12 @@ class BlackjackGame:
         self.dealer_hand.add_card(self.deck.deal())
         self.player_hand.add_card(self.deck.deal())
         self.dealer_hand.add_card(self.deck.deal())
+        
+        # Check for immediate blackjack
+        if self.player_hand.is_blackjack() or self.dealer_hand.is_blackjack():
+            self.end_game()
+            return
+        
         # Check if double is possible (only on first two cards)
         if len(self.player_hand.cards) == 2:
             self.can_double = True
@@ -775,7 +781,11 @@ class BlackjackGUI:
             if self.game.set_bet(amount):
                 self.game.deal_initial_cards()
                 self.update_display()
-                self.status_label.config(text=f"Bet placed: ${amount}", fg='green')
+                # Check if game ended immediately (blackjack)
+                if self.game.game_over:
+                    self.show_result()
+                else:
+                    self.status_label.config(text=f"Bet placed: ${amount}", fg='green')
             else:
                 self.status_label.config(text="Invalid bet amount!", fg='red')
         except ValueError:
