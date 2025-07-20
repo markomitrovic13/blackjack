@@ -66,6 +66,7 @@ class Hand:
     
     def __init__(self):
         self.cards = []
+        self.bet_size = 0
     
     def add_card(self, card: Card):
         """Add a card to the hand."""
@@ -97,11 +98,46 @@ class Hand:
     
     def is_blackjack(self) -> bool:
         """Check if the hand is a blackjack (Ace + 10-value card)."""
+        #TODO: Check if the hand was split. If so, do not count it as a blackjack.
         return len(self.cards) == 2 and self.get_value() == 21
     
     def clear(self):
         """Clear all cards from the hand."""
         self.cards = []
+        self.bet_size = 0
+    
+    def set_bet(self, amount: int):
+        """Set the bet size for this hand."""
+        self.bet_size = amount
+
+class Player:
+    """Represents a player with multiple hands."""
+    
+    def __init__(self):
+        self.hands = []
+        self.current_hand_index = 0
+    
+    def add_hand(self, hand: Hand):
+        """Add a hand to the player."""
+        self.hands.append(hand)
+    
+    def get_current_hand(self) -> Hand | None:
+        """Get the current hand being played."""
+        if self.hands:
+            return self.hands[self.current_hand_index]
+        return None
+    
+    def next_hand(self) -> bool:
+        """Move to the next hand. Returns True if there are more hands."""
+        if self.current_hand_index < len(self.hands) - 1:
+            self.current_hand_index += 1
+            return True
+        return False
+    
+    def clear_hands(self):
+        """Clear all hands."""
+        self.hands = []
+        self.current_hand_index = 0
 
 class BlackjackGame:
     """Main blackjack game logic."""
