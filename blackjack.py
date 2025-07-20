@@ -139,33 +139,33 @@ class BlackjackGame:
             dealer_value = self.dealer_hand.get_value()
             total_payout = 0
             
-            # Each split hand has its own bet (half of total bet)
-            split_bet = self.bet_size // 2
+            # Each split hand has its own bet (same as original bet)
+            split_bet = self.bet_size
             
             for hand in self.split_hands:
                 player_value = hand.get_value()
                 
                 if hand.is_bust():
                     # Lose bet for this hand
-                    pass
+                    total_payout -= split_bet
                 elif self.dealer_hand.is_bust():
                     # Win bet for this hand
                     total_payout += split_bet
-                elif hand.is_blackjack() and not self.dealer_hand.is_blackjack():
-                    # Blackjack pays 3:2
-                    total_payout += int(split_bet * 1.5)
+                elif hand.get_value() == 21 and not self.dealer_hand.is_blackjack():
+                    # Regular 21 on split hand (not blackjack)
+                    total_payout += split_bet
                 elif self.dealer_hand.is_blackjack() and not hand.is_blackjack():
                     # Lose bet for this hand
-                    pass
+                    total_payout -= split_bet
                 elif player_value > dealer_value:
                     # Win bet for this hand
                     total_payout += split_bet
                 elif dealer_value > player_value:
                     # Lose bet for this hand
-                    pass
+                    total_payout -= split_bet
                 else:
-                    # Push (tie) - return original bet
-                    total_payout += split_bet
+                    # Push (tie) - return original bet (no change to payout)
+                    pass
             
             return total_payout
         else:
@@ -231,8 +231,8 @@ class BlackjackGame:
                     results.append(f"Hand {i+1}: BUST")
                 elif self.dealer_hand.is_bust():
                     results.append(f"Hand {i+1}: WIN")
-                elif hand.is_blackjack() and not self.dealer_hand.is_blackjack():
-                    results.append(f"Hand {i+1}: BLACKJACK")
+                elif hand.get_value() == 21 and not self.dealer_hand.is_blackjack():
+                    results.append(f"Hand {i+1}: WIN")
                 elif self.dealer_hand.is_blackjack() and not hand.is_blackjack():
                     results.append(f"Hand {i+1}: LOSE")
                 elif player_value > dealer_value:
@@ -806,8 +806,8 @@ class BlackjackGUI:
                         results.append(f"Hand {i+1}: BUST!")
                     elif self.game.dealer_hand.is_bust():
                         results.append(f"Hand {i+1}: WIN!")
-                    elif hand.is_blackjack() and not self.game.dealer_hand.is_blackjack():
-                        results.append(f"Hand {i+1}: BLACKJACK!")
+                    elif hand.get_value() == 21 and not self.game.dealer_hand.is_blackjack():
+                        results.append(f"Hand {i+1}: WIN!")
                     elif self.game.dealer_hand.is_blackjack() and not hand.is_blackjack():
                         results.append(f"Hand {i+1}: LOSE!")
                     elif player_value > dealer_value:
