@@ -139,6 +139,29 @@ class Player:
         self.hands = []
         self.current_hand_index = 0
 
+class Dealer:
+    """Represents a dealer with a hand and playing strategy."""
+    
+    def __init__(self):
+        self.hand = Hand()
+    
+    def add_card(self, card: Card):
+        """Add a card to the dealer's hand."""
+        self.hand.add_card(card)
+    
+    def get_hand(self) -> Hand:
+        """Get the dealer's hand."""
+        return self.hand
+    
+    def play_hand(self, deck: Deck):
+        """Play the dealer's hand according to standard rules (hit on 16, stand on 17)."""
+        while self.hand.get_value() < 17:
+            self.hand.add_card(deck.deal())
+    
+    def clear_hand(self):
+        """Clear the dealer's hand."""
+        self.hand.clear()
+
 class BlackjackGame:
     """Main blackjack game logic."""
     
