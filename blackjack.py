@@ -45,7 +45,7 @@ class Deck:
     
     def deal(self) -> Card:
         """Deal one card from the deck."""
-        if not self.cards:
+        if not self.cards or self.should_shuffle():
             self.reset()
         return self.cards.pop()
     
@@ -67,7 +67,8 @@ class Hand:
     def __init__(self):
         self.cards = []
         self.bet_size = 0
-    
+        self.is_split = False
+        
     def add_card(self, card: Card):
         """Add a card to the hand."""
         self.cards.append(card)
@@ -98,8 +99,10 @@ class Hand:
     
     def is_blackjack(self) -> bool:
         """Check if the hand is a blackjack (Ace + 10-value card)."""
-        #TODO: Check if the hand was split. If so, do not count it as a blackjack.
-        return len(self.cards) == 2 and self.get_value() == 21
+        if len(self.cards) == 2 and self.get_value() == 21 and not self.is_split:
+            return True
+        else:
+            return False
     
     def clear(self):
         """Clear all cards from the hand."""
@@ -116,6 +119,7 @@ class Player:
     def __init__(self):
         self.hands = []
         self.current_hand_index = 0
+        self.bet_size = 0
     
     def add_hand(self, hand: Hand):
         """Add a hand to the player."""
@@ -138,6 +142,12 @@ class Player:
         """Clear all hands."""
         self.hands = []
         self.current_hand_index = 0
+    
+    def set_bet(self, amount: int):
+        """Set the bet size for the player."""
+        self.bet_size = amount
+    
+
 
 class Dealer:
     """Represents a dealer with a hand and playing strategy."""
@@ -167,93 +177,71 @@ class BlackjackGame:
     
     def __init__(self):
         self.deck = Deck()
-        self.player_hand = Hand()
-        self.dealer_hand = Hand()
+        self.player = Player()
+        self.dealer = Dealer()
         self.game_over = False
         self.player_wins = 0
         self.dealer_wins = 0
         self.ties = 0
         self.can_double = False
         self.can_split = False
-        self.split_hands = []
-        self.current_hand_index = 0
-        self.is_split_game = False
-        self.bet_size = 0  # Track the bet size for the current hand
         self.total_winnings = 0  # Track total winnings
-        self.doubled = False  # Track if current hand was doubled
     
     def set_bet(self, amount: int) -> bool:
         """Set the bet size for the current hand."""
         if amount <= 0:
             return False
-        self.bet_size = amount
+        
+        # Set bet on player and create initial hand
+        self.player.set_bet(amount)
+        initial_hand = Hand()
+        initial_hand.set_bet(amount)
+        self.player.clear_hands()
+        self.player.add_hand(initial_hand)
         return True
     
     def get_payout(self) -> int:
         """Calculate payout based on game result and bet size."""
-        if self.bet_size == 0:
+        if not self.player.hands:
             return 0
         
-        if self.is_split_game:
-            # Handle split game payouts
-            dealer_value = self.dealer_hand.get_value()
-            total_payout = 0
+        dealer_value = self.dealer.get_hand().get_value()
+        total_payout = 0
+        
+        for hand in self.player.hands:
+            player_value = hand.get_value()
+            hand_bet = hand.bet_size
             
-            # Each split hand has its own bet (same as original bet)
-            split_bet = self.bet_size
-            
-            for hand in self.split_hands:
-                player_value = hand.get_value()
-                
-                if hand.is_bust():
-                    # Lose bet for this hand
-                    total_payout -= split_bet
-                elif self.dealer_hand.is_bust():
-                    # Win bet for this hand
-                    total_payout += split_bet
-                elif hand.get_value() == 21 and not self.dealer_hand.is_blackjack():
-                    # Regular 21 on split hand (not blackjack)
-                    total_payout += split_bet
-                elif self.dealer_hand.is_blackjack() and not hand.is_blackjack():
-                    # Lose bet for this hand
-                    total_payout -= split_bet
-                elif player_value > dealer_value:
-                    # Win bet for this hand
-                    total_payout += split_bet
-                elif dealer_value > player_value:
-                    # Lose bet for this hand
-                    total_payout -= split_bet
-                else:
-                    # Push (tie) - return original bet (no change to payout)
-                    pass
-            
-            return total_payout
-        else:
-            # Handle regular game payout
-            player_value = self.player_hand.get_value()
-            dealer_value = self.dealer_hand.get_value()
-            
-            # Calculate payout multiplier (2x for doubled hands)
-            payout_multiplier = 2 if self.doubled else 1
-            
-            if self.player_hand.is_bust():
-                return -1*self.bet_size * payout_multiplier  # Lose bet
-            elif self.dealer_hand.is_bust():
-                return self.bet_size * payout_multiplier  # Win bet
-            elif self.player_hand.is_blackjack() and not self.dealer_hand.is_blackjack():
-                return int(self.bet_size * 1.5 * payout_multiplier)  # Blackjack pays 3:2
-            elif self.dealer_hand.is_blackjack() and not self.player_hand.is_blackjack():
-                return -1*self.bet_size * payout_multiplier  # Lose bet
+            if hand.is_bust():
+                # Lose bet for this hand
+                total_payout -= hand_bet
+            elif self.dealer.get_hand().is_bust():
+                # Win bet for this hand
+                total_payout += hand_bet
+            elif hand.is_blackjack() and not self.dealer.get_hand().is_blackjack():
+                #Natural blackjack
+                total_payout += hand_bet * 1.5
+            elif hand.get_value() == 21 and not hand.is_blackjack() and not self.dealer.get_hand().is_blackjack():
+                # Regular 21 on split hand (not blackjack)
+                total_payout += hand_bet
+            elif self.dealer.get_hand().is_blackjack() and not hand.is_blackjack():
+                # Lose bet for this hand
+                total_payout -= hand_bet
             elif player_value > dealer_value:
-                return self.bet_size * payout_multiplier  # Win bet
+                # Win bet for this hand
+                total_payout += hand_bet
             elif dealer_value > player_value:
-                return -1*self.bet_size * payout_multiplier  # Lose bet
+                # Lose bet for this hand
+                total_payout -= hand_bet
             else:
-                return 0  # Push (tie) - return original bet
+                # Push (tie) - return original bet (no change to payout)
+                pass
+        
+        return total_payout
     
     def update_money_tracking(self):
         """Update total winnings and losses based on current game result."""
-        if self.bet_size == 0:
+        if not self.player.hands:
             return
         
         payout = self.get_payout()
@@ -263,67 +251,60 @@ class BlackjackGame:
         """Log the final game state to terminal."""
         
         # Log dealer's final hand
-        dealer_cards = [str(card) for card in self.dealer_hand.cards]
-        dealer_value = self.dealer_hand.get_value()
+        dealer_hand = self.dealer.get_hand()
+        dealer_cards = [str(card) for card in dealer_hand.cards]
+        dealer_value = dealer_hand.get_value()
         print(f"Dealer's Final Hand: {', '.join(dealer_cards)} (Value: {dealer_value})")
         
         # Log player's final hand(s)
-        if self.is_split_game:
+        if len(self.player.hands) > 1:
             print("Player's Final Hands:")
-            for i, hand in enumerate(self.split_hands):
+            for i, hand in enumerate(self.player.hands):
                 cards = [str(card) for card in hand.cards]
                 value = hand.get_value()
                 print(f"  Hand {i+1}: {', '.join(cards)} (Value: {value})")
         else:
-            player_cards = [str(card) for card in self.player_hand.cards]
-            player_value = self.player_hand.get_value()
-            print(f"Player's Final Hand: {', '.join(player_cards)} (Value: {player_value})")
+            current_hand = self.player.get_current_hand()
+            if current_hand:
+                player_cards = [str(card) for card in current_hand.cards]
+                player_value = current_hand.get_value()
+                print(f"Player's Final Hand: {', '.join(player_cards)} (Value: {player_value})")
         
         # Log bet and payout
         payout = self.get_payout()
-        print(f"Bet Amount: ${self.bet_size}")
+        total_bet = sum(hand.bet_size for hand in self.player.hands)
+        print(f"Total Bet Amount: ${total_bet}")
         print(f"Payout: ${payout}")
         
-        # Log game result
-        if self.is_split_game:
-            dealer_value = self.dealer_hand.get_value()
-            results = []
-            for i, hand in enumerate(self.split_hands):
-                player_value = hand.get_value()
-                if hand.is_bust():
-                    results.append(f"Hand {i+1}: BUST")
-                elif self.dealer_hand.is_bust():
-                    results.append(f"Hand {i+1}: WIN")
-                elif hand.get_value() == 21 and not self.dealer_hand.is_blackjack():
-                    results.append(f"Hand {i+1}: WIN")
-                elif self.dealer_hand.is_blackjack() and not hand.is_blackjack():
-                    results.append(f"Hand {i+1}: LOSE")
-                elif player_value > dealer_value:
-                    results.append(f"Hand {i+1}: WIN")
-                elif dealer_value > player_value:
-                    results.append(f"Hand {i+1}: LOSE")
-                else:
-                    results.append(f"Hand {i+1}: TIE")
-            print(f"Result: {' | '.join(results)}")
-        else:
-            player_value = self.player_hand.get_value()
-            dealer_value = self.dealer_hand.get_value()
+        # Log game result - follow same logic as get_payout
+        dealer_value = dealer_hand.get_value()
+        results = []
+        for i, hand in enumerate(self.player.hands):
+            player_value = hand.get_value()
+            hand_bet = hand.bet_size
             
-            if self.player_hand.is_bust():
-                result = "BUST - Player loses"
-            elif self.dealer_hand.is_bust():
-                result = "Dealer busts - Player wins"
-            elif self.player_hand.is_blackjack() and not self.dealer_hand.is_blackjack():
-                result = "BLACKJACK - Player wins"
-            elif self.dealer_hand.is_blackjack() and not self.player_hand.is_blackjack():
-                result = "Dealer blackjack - Player loses"
+            if hand.is_bust():
+                results.append(f"Hand {i+1}: BUST")
+            elif dealer_hand.is_bust():
+                results.append(f"Hand {i+1}: WIN")
+            elif hand.is_blackjack() and not dealer_hand.is_blackjack():
+                results.append(f"Hand {i+1}: BLACKJACK")
+            elif hand.get_value() == 21 and not hand.is_blackjack() and not dealer_hand.is_blackjack():
+                results.append(f"Hand {i+1}: WIN")
+            elif dealer_hand.is_blackjack() and not hand.is_blackjack():
+                results.append(f"Hand {i+1}: LOSE")
             elif player_value > dealer_value:
-                result = "Player wins"
+                results.append(f"Hand {i+1}: WIN")
             elif dealer_value > player_value:
-                result = "Dealer wins"
+                results.append(f"Hand {i+1}: LOSE")
             else:
-                result = "TIE"
+                results.append(f"Hand {i+1}: TIE")
+        
+        if len(self.player.hands) == 1:
+            result = results[0].split(": ")[1]  # Extract just the result part
             print(f"Result: {result}")
+        else:
+            print(f"Result: {' | '.join(results)}")
         
         print(f"Total Winnings: ${self.total_winnings}")
         print("="*50)
@@ -335,119 +316,123 @@ class BlackjackGame:
             self.deck.reset()
             shuffle_notification = "Deck shuffled!"
         
-        self.player_hand.clear()
-        self.dealer_hand.clear()
+        self.player.clear_hands()
+        self.dealer.clear_hand()
         self.game_over = False
         self.can_double = False
         self.can_split = False
-        self.split_hands = []
-        self.current_hand_index = 0
-        self.is_split_game = False
-        self.bet_size = 0  # Require new bet before dealing
-        self.doubled = False  # Reset doubled flag
         # Do NOT deal cards yet
         return shuffle_notification
 
     def deal_initial_cards(self):
         """Deal the initial cards after a bet is placed."""
-        self.player_hand.clear()
-        self.dealer_hand.clear()
-        self.split_hands = []
-        self.current_hand_index = 0
-        self.is_split_game = False
+        self.dealer.clear_hand()
         self.game_over = False
         self.can_double = False
         self.can_split = False
-        self.doubled = False  # Reset doubled flag
+        
+        # Get the initial hand from player (should already exist from set_bet)
+        current_hand = self.player.get_current_hand()
+        if not current_hand:
+            return
+        
         # Deal initial cards
-        self.player_hand.add_card(self.deck.deal())
-        self.dealer_hand.add_card(self.deck.deal())
-        self.player_hand.add_card(self.deck.deal())
-        self.dealer_hand.add_card(self.deck.deal())
+        current_hand.add_card(self.deck.deal())
+        self.dealer.add_card(self.deck.deal())
+        current_hand.add_card(self.deck.deal())
+        self.dealer.add_card(self.deck.deal())
         
         # Check for immediate blackjack
-        if self.player_hand.is_blackjack() or self.dealer_hand.is_blackjack():
+        if current_hand.is_blackjack() or self.dealer.get_hand().is_blackjack():
             self.end_game()
             return
         
         # Check if double is possible (only on first two cards)
-        if len(self.player_hand.cards) == 2:
+        if len(current_hand.cards) == 2:
             self.can_double = True
         # Check if split is possible (same value cards)
-        if (len(self.player_hand.cards) == 2 and 
-            self.player_hand.cards[0].get_value() == self.player_hand.cards[1].get_value()):
+        if (len(current_hand.cards) == 2 and 
+            current_hand.cards[0].get_value() == current_hand.cards[1].get_value()):
             self.can_split = True
 
     def hit(self):
         """Player hits (takes another card)."""
         if not self.game_over:
             current_hand = self.get_current_hand()
-            current_hand.add_card(self.deck.deal())
-            
-            # Disable double after first hit
-            self.can_double = False
-            
-            if current_hand.is_bust():
-                if self.is_split_game and self.current_hand_index < len(self.split_hands) - 1:
-                    # Move to next split hand
-                    self.current_hand_index += 1
-                else:
-                    self.end_game()
+            if current_hand:
+                current_hand.add_card(self.deck.deal())
+                
+                # Disable double after first hit
+                self.can_double = False
+                
+                if current_hand.is_bust():
+                    if len(self.player.hands) > 1 and self.player.current_hand_index < len(self.player.hands) - 1:
+                        # Move to next split hand
+                        self.player.next_hand()
+                    else:
+                        self.end_game()
     
     def double(self):
         """Player doubles (hit once and stand)."""
         if not self.game_over and self.can_double:
             current_hand = self.get_current_hand()
-            current_hand.add_card(self.deck.deal())
-            self.can_double = False
-            self.doubled = True  # Mark that this hand was doubled
-            
-            if current_hand.is_bust():
-                if self.is_split_game and self.current_hand_index < len(self.split_hands) - 1:
-                    self.current_hand_index += 1
+            if current_hand:
+                current_hand.add_card(self.deck.deal())
+                current_hand.bet_size *= 2
+                self.can_double = False
+                
+                if current_hand.is_bust():
+                    if len(self.player.hands) > 1 and self.player.current_hand_index < len(self.player.hands) - 1:
+                        self.player.next_hand()
+                    else:
+                        self.end_game()
                 else:
-                    self.end_game()
-            else:
-                # After double, automatically stand
-                if self.is_split_game and self.current_hand_index < len(self.split_hands) - 1:
-                    self.current_hand_index += 1
-                else:
-                    self.stand()
+                    # After double, automatically stand
+                    if len(self.player.hands) > 1 and self.player.current_hand_index < len(self.player.hands) - 1:
+                        self.player.next_hand()
+                    else:
+                        self.stand()
     
     def split(self):
         """Player splits the hand."""
-        if not self.game_over and self.can_split and len(self.player_hand.cards) == 2:
+        current_hand = self.player.get_current_hand()
+        if not self.game_over and self.can_split and current_hand and len(current_hand.cards) == 2:
             # Create two new hands from the split
-            card1 = self.player_hand.cards[0]
-            card2 = self.player_hand.cards[1]
+            card1 = current_hand.cards[0]
+            card2 = current_hand.cards[1]
             
-            # Create split hands
+            # Create split hands with same bet size
             hand1 = Hand()
+            hand1.set_bet(current_hand.bet_size)
+            hand1.is_split = True  # Mark as split hand
             hand1.add_card(card1)
             hand1.add_card(self.deck.deal())
             
             hand2 = Hand()
+            hand2.set_bet(current_hand.bet_size)
+            hand2.is_split = True  # Mark as split hand
             hand2.add_card(card2)
             hand2.add_card(self.deck.deal())
             
-            self.split_hands = [hand1, hand2]
-            self.is_split_game = True
-            self.current_hand_index = 0
+            # Replace current hand with split hands
+            self.player.clear_hands()
+            self.player.add_hand(hand1)
+            self.player.add_hand(hand2)
+            self.player.current_hand_index = 0
+            
             self.can_split = False
             self.can_double = True  # Can double on split hands
     
     def get_current_hand(self):
         """Get the current hand being played."""
-        if self.is_split_game and self.split_hands:
-            return self.split_hands[self.current_hand_index]
-        return self.player_hand
+        return self.player.get_current_hand()
     
     def stand(self):
         """Player stands (dealer plays)."""
         if not self.game_over:
-            if self.is_split_game and self.current_hand_index < len(self.split_hands) - 1:
+            if len(self.player.hands) > 1 and self.player.current_hand_index < len(self.player.hands) - 1:
                 # Move to next split hand
-                self.current_hand_index += 1
+                self.player.next_hand()
                 self.can_double = True  # Can double on next split hand
             else:
                 self.dealer_play()
@@ -455,8 +440,7 @@ class BlackjackGame:
     
     def dealer_play(self):
         """Dealer plays according to standard rules (hit on 16, stand on 17)."""
-        while self.dealer_hand.get_value() < 17:
-            self.dealer_hand.add_card(self.deck.deal())
+        self.dealer.play_hand(self.deck)
     
     def end_game(self):
         """End the game and determine the winner."""
@@ -468,53 +452,33 @@ class BlackjackGame:
         # Log the final game state
         self.log_game_result()
         
-        if self.is_split_game:
-            # Handle split game results
-            dealer_value = self.dealer_hand.get_value()
-            player_wins_this_round = 0
-            dealer_wins_this_round = 0
-            ties_this_round = 0
+        # Handle all hands (single or split)
+        dealer_value = self.dealer.get_hand().get_value()
+        player_wins_this_round = 0
+        dealer_wins_this_round = 0
+        ties_this_round = 0
+        
+        for hand in self.player.hands:
+            player_value = hand.get_value()
             
-            for hand in self.split_hands:
-                player_value = hand.get_value()
-                
-                if hand.is_bust():
-                    dealer_wins_this_round += 1
-                elif self.dealer_hand.is_bust():
-                    player_wins_this_round += 1
-                elif hand.is_blackjack() and not self.dealer_hand.is_blackjack():
-                    player_wins_this_round += 1
-                elif self.dealer_hand.is_blackjack() and not hand.is_blackjack():
-                    dealer_wins_this_round += 1
-                elif player_value > dealer_value:
-                    player_wins_this_round += 1
-                elif dealer_value > player_value:
-                    dealer_wins_this_round += 1
-                else:
-                    ties_this_round += 1
-            
-            self.player_wins += player_wins_this_round
-            self.dealer_wins += dealer_wins_this_round
-            self.ties += ties_this_round
-        else:
-            # Handle regular game
-            player_value = self.player_hand.get_value()
-            dealer_value = self.dealer_hand.get_value()
-            
-            if self.player_hand.is_bust():
-                self.dealer_wins += 1
-            elif self.dealer_hand.is_bust():
-                self.player_wins += 1
-            elif self.player_hand.is_blackjack() and not self.dealer_hand.is_blackjack():
-                self.player_wins += 1
-            elif self.dealer_hand.is_blackjack() and not self.player_hand.is_blackjack():
-                self.dealer_wins += 1
+            if hand.is_bust():
+                dealer_wins_this_round += 1
+            elif self.dealer.get_hand().is_bust():
+                player_wins_this_round += 1
+            elif hand.is_blackjack() and not self.dealer.get_hand().is_blackjack():
+                player_wins_this_round += 1
+            elif self.dealer.get_hand().is_blackjack() and not hand.is_blackjack():
+                dealer_wins_this_round += 1
             elif player_value > dealer_value:
-                self.player_wins += 1
+                player_wins_this_round += 1
             elif dealer_value > player_value:
-                self.dealer_wins += 1
+                dealer_wins_this_round += 1
             else:
-                self.ties += 1
+                ties_this_round += 1
+        
+        self.player_wins += player_wins_this_round
+        self.dealer_wins += dealer_wins_this_round
+        self.ties += ties_this_round
 
 class BlackjackGUI:
     """Graphical user interface for the blackjack game."""
@@ -771,45 +735,53 @@ class BlackjackGUI:
     def update_display(self):
         """Update the display with current game state."""
         # Update dealer hand
-        if self.game.bet_size == 0 or len(self.game.dealer_hand.cards) == 0:
+        dealer_hand = self.game.dealer.get_hand()
+        if not self.game.player.hands or len(dealer_hand.cards) == 0:
             dealer_text = "Cards: No cards dealt yet"
             dealer_value = 0
         elif self.game.game_over:
-            dealer_cards = [str(card) for card in self.game.dealer_hand.cards]
+            dealer_cards = [str(card) for card in dealer_hand.cards]
             dealer_text = f"Cards: {', '.join(dealer_cards)}"
-            dealer_value = self.game.dealer_hand.get_value()
+            dealer_value = dealer_hand.get_value()
         else:
             # Hide dealer's first card
-            dealer_cards = [str(self.game.dealer_hand.cards[0]), "Hidden"]
+            dealer_cards = [str(dealer_hand.cards[0]), "Hidden"]
             dealer_text = f"Cards: {', '.join(dealer_cards)}"
-            dealer_value = self.game.dealer_hand.cards[0].get_value()
+            dealer_value = dealer_hand.cards[0].get_value()
         self.dealer_hand_label.config(text=dealer_text)
         self.dealer_value_label.config(text=f"Value: {dealer_value}")
+        
         # Update player hand(s)
-        if self.game.bet_size == 0 or len(self.game.player_hand.cards) == 0:
+        if not self.game.player.hands:
             player_text = "Cards: No cards dealt yet"
             player_value = 0
-        elif self.game.is_split_game and self.game.split_hands:
+        elif len(self.game.player.hands) > 1:
+            # Split game
             split_text = ""
-            for i, hand in enumerate(self.game.split_hands):
+            for i, hand in enumerate(self.game.player.hands):
                 cards = [str(card) for card in hand.cards]
                 hand_text = f"Hand {i+1}: {', '.join(cards)} (Value: {hand.get_value()})"
-                if i == self.game.current_hand_index and not self.game.game_over:
+                if i == self.game.player.current_hand_index and not self.game.game_over:
                     hand_text += " ← Current"
                 split_text += hand_text + "\n"
             self.player_hand_label.config(text=split_text.rstrip())
-            self.player_value_label.config(text=f"Split Game - Hand {self.game.current_hand_index + 1}")
+            self.player_value_label.config(text=f"Split Game - Hand {self.game.player.current_hand_index + 1}")
         else:
-            player_cards = [str(card) for card in self.game.player_hand.cards]
-            player_text = f"Cards: {', '.join(player_cards)}"
-            player_value = self.game.player_hand.get_value()
-            self.player_hand_label.config(text=player_text)
-            self.player_value_label.config(text=f"Value: {player_value}")
+            # Single hand
+            current_hand = self.game.player.get_current_hand()
+            if current_hand:
+                player_cards = [str(card) for card in current_hand.cards]
+                player_text = f"Cards: {', '.join(player_cards)}"
+                player_value = current_hand.get_value()
+                self.player_hand_label.config(text=player_text)
+                self.player_value_label.config(text=f"Value: {player_value}")
+        
         # Update stats
         self.player_score_label.config(text=f"Player: {self.game.player_wins}")
         self.dealer_score_label.config(text=f"Dealer: {self.game.dealer_wins}")
         self.ties_label.config(text=f"Ties: {self.game.ties}")
         self.deck_status_label.config(text=f"Deck: {self.game.deck.get_remaining_cards()}")
+        
         # Update winnings/losses display with color coding
         winnings_text = f"Winnings: ${self.game.total_winnings}"
         if self.game.total_winnings > 0:
@@ -818,11 +790,15 @@ class BlackjackGUI:
             self.winnings_label.config(text=winnings_text, fg='#FF0000')  # Red for negative
         else:
             self.winnings_label.config(text=winnings_text, fg='#FFFFFF')  # White for zero
+        
         # Update bet info
-        if self.game.bet_size > 0:
-            self.status_label.config(text=f"Current Bet: ${self.game.bet_size}", fg='yellow')
+        total_bet = sum(hand.bet_size for hand in self.game.player.hands)
+        if total_bet > 0:
+            self.status_label.config(text=f"Current Bet: ${total_bet}", fg='yellow')
+        
         # Update button states
-        if self.game.bet_size == 0 or len(self.game.player_hand.cards) == 0 or self.game.game_over:
+        current_hand = self.game.player.get_current_hand()
+        if not current_hand or self.game.game_over:
             self.hit_button.config(state=tk.DISABLED)
             self.stand_button.config(state=tk.DISABLED)
             self.double_button.config(state=tk.DISABLED)
@@ -838,8 +814,9 @@ class BlackjackGUI:
                 self.split_button.config(state=tk.NORMAL)
             else:
                 self.split_button.config(state=tk.DISABLED)
+        
         # Enable/disable betting controls
-        if self.game.bet_size == 0 or self.game.game_over:
+        if not self.game.player.hands or self.game.game_over:
             self.place_bet_button.config(state=tk.NORMAL)
             self.bet_entry.config(state=tk.NORMAL)
         else:
@@ -866,21 +843,24 @@ class BlackjackGUI:
     def show_result(self):
         """Show the game result."""
         if self.game.game_over:
-            if self.game.is_split_game:
+            if len(self.game.player.hands) > 1:
                 # Handle split game results
-                dealer_value = self.game.dealer_hand.get_value()
+                dealer_hand = self.game.dealer.get_hand()
+                dealer_value = dealer_hand.get_value()
                 results = []
                 
-                for i, hand in enumerate(self.game.split_hands):
+                for i, hand in enumerate(self.game.player.hands):
                     player_value = hand.get_value()
                     
                     if hand.is_bust():
                         results.append(f"Hand {i+1}: BUST!")
-                    elif self.game.dealer_hand.is_bust():
+                    elif dealer_hand.is_bust():
                         results.append(f"Hand {i+1}: WIN!")
-                    elif hand.get_value() == 21 and not self.game.dealer_hand.is_blackjack():
+                    elif hand.is_blackjack() and not dealer_hand.is_blackjack():
+                        results.append(f"Hand {i+1}: BLACKJACK!")
+                    elif hand.get_value() == 21 and not hand.is_blackjack() and not dealer_hand.is_blackjack():
                         results.append(f"Hand {i+1}: WIN!")
-                    elif self.game.dealer_hand.is_blackjack() and not hand.is_blackjack():
+                    elif dealer_hand.is_blackjack() and not hand.is_blackjack():
                         results.append(f"Hand {i+1}: LOSE!")
                     elif player_value > dealer_value:
                         results.append(f"Hand {i+1}: WIN!")
@@ -893,36 +873,40 @@ class BlackjackGUI:
                 self.status_label.config(text=result, fg='yellow')
             else:
                 # Handle regular game
-                player_value = self.game.player_hand.get_value()
-                dealer_value = self.game.dealer_hand.get_value()
+                current_hand = self.game.player.get_current_hand()
+                dealer_hand = self.game.dealer.get_hand()
                 
-                if self.game.player_hand.is_bust():
-                    result = "BUST! You lose!"
-                    color = 'red'
-                elif self.game.dealer_hand.is_bust():
-                    result = "Dealer busts! You win!"
-                    color = 'green'
-                elif self.game.player_hand.is_blackjack() and not self.game.dealer_hand.is_blackjack():
-                    result = "BLACKJACK! You win!"
-                    color = 'green'
-                elif self.game.dealer_hand.is_blackjack() and not self.game.player_hand.is_blackjack():
-                    result = "Dealer has blackjack! You lose!"
-                    color = 'red'
-                elif player_value > dealer_value:
-                    result = "You win!"
-                    color = 'green'
-                elif dealer_value > player_value:
-                    result = "Dealer wins!"
-                    color = 'red'
-                else:
-                    result = "It's a tie!"
-                    color = 'yellow'
-                
-                # Add payout information
-                payout = self.game.get_payout()
-                result += f" Payout: ${payout}"
-                
-                self.status_label.config(text=result, fg=color)
+                if current_hand and dealer_hand:
+                    player_value = current_hand.get_value()
+                    dealer_value = dealer_hand.get_value()
+                    
+                    if current_hand.is_bust():
+                        result = "BUST! You lose!"
+                        color = 'red'
+                    elif dealer_hand.is_bust():
+                        result = "Dealer busts! You win!"
+                        color = 'green'
+                    elif current_hand.is_blackjack() and not dealer_hand.is_blackjack():
+                        result = "BLACKJACK! You win!"
+                        color = 'green'
+                    elif dealer_hand.is_blackjack() and not current_hand.is_blackjack():
+                        result = "Dealer has blackjack! You lose!"
+                        color = 'red'
+                    elif player_value > dealer_value:
+                        result = "You win!"
+                        color = 'green'
+                    elif dealer_value > player_value:
+                        result = "Dealer wins!"
+                        color = 'red'
+                    else:
+                        result = "It's a tie!"
+                        color = 'yellow'
+                    
+                    # Add payout information
+                    payout = self.game.get_payout()
+                    result += f" Payout: ${payout}"
+                    
+                    self.status_label.config(text=result, fg=color)
     
     def hit(self):
         """Player hits."""
