@@ -22,6 +22,15 @@ class Card:
             return 11  # Ace will be handled specially in hand calculation
         else:
             return int(self.value)
+    
+    def get_count_value(self) -> int:
+        """Get the Hi-Lo count value of the card."""
+        if self.value in ['10', 'J', 'Q', 'K', 'A']:
+            return -1  # High cards (10, J, Q, K, A) are -1
+        elif self.value in ['2', '3', '4', '5', '6']:
+            return 1   # Low cards (2-6) are +1
+        else:
+            return 0   # Neutral cards (7, 8, 9) are 0
 
 class Deck:
     """Represents a deck of 52 playing cards."""
@@ -29,6 +38,7 @@ class Deck:
     def __init__(self):
         self.cards = []
         self.original_size = 52
+        self.running_count = 0
         self.reset()
     
     def reset(self):
@@ -37,6 +47,7 @@ class Deck:
         values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
         
         self.cards = [Card(suit, value) for suit in suits for value in values]
+        self.running_count = 0  # Reset count when deck is shuffled
         self.shuffle()
     
     def shuffle(self):
@@ -47,7 +58,9 @@ class Deck:
         """Deal one card from the deck."""
         if not self.cards or self.should_shuffle():
             self.reset()
-        return self.cards.pop()
+        card = self.cards.pop()
+        self.running_count += card.get_count_value()
+        return card
     
     def get_remaining_percentage(self) -> float:
         """Get the percentage of cards remaining in the deck."""
@@ -60,6 +73,16 @@ class Deck:
     def should_shuffle(self) -> bool:
         """Check if deck should be shuffled (when 50% or fewer cards remain)."""
         return len(self.cards) <= self.original_size // 2
+    
+    def reset_count(self):
+        """Reset the count when deck is shuffled."""
+        self.running_count = 0
+    
+    def get_true_count(self) -> float:
+        """Get the true count (running count / decks remaining)."""
+        decks_remaining = len(self.cards) / 52.0
+        return self.running_count / decks_remaining
+        
 
 class Hand:
     """Represents a hand of cards (player or dealer)."""
@@ -575,6 +598,15 @@ class BlackjackGUI:
         )
         self.deck_status_label.pack(side=tk.LEFT, padx=10)
         
+        self.count_label = tk.Label(
+            stats_frame, 
+            text="Count: 0", 
+            font=("Arial", 12), 
+            fg='white', 
+            bg='#2c5530'
+        )
+        self.count_label.pack(side=tk.LEFT, padx=10)
+        
         # Winnings/Losses frame
         money_frame = tk.Frame(self.root, bg='#2c5530')
         money_frame.pack(pady=5)
@@ -781,6 +813,12 @@ class BlackjackGUI:
         self.dealer_score_label.config(text=f"Dealer: {self.game.dealer_wins}")
         self.ties_label.config(text=f"Ties: {self.game.ties}")
         self.deck_status_label.config(text=f"Deck: {self.game.deck.get_remaining_cards()}")
+        
+        # Update card count display
+        running_count = self.game.deck.running_count
+        true_count = self.game.deck.get_true_count()
+        count_text = f"Count: {running_count} (True: {true_count:.1f})"
+        self.count_label.config(text=count_text)
         
         # Update winnings/losses display with color coding
         winnings_text = f"Winnings: ${self.game.total_winnings}"
