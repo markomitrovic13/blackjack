@@ -121,6 +121,7 @@ class BlackjackGame:
         self.is_split_game = False
         self.bet_size = 0  # Track the bet size for the current hand
         self.total_winnings = 0  # Track total winnings
+        self.doubled = False  # Track if current hand was doubled
     
     def set_bet(self, amount: int) -> bool:
         """Set the bet size for the current hand."""
@@ -173,18 +174,21 @@ class BlackjackGame:
             player_value = self.player_hand.get_value()
             dealer_value = self.dealer_hand.get_value()
             
+            # Calculate payout multiplier (2x for doubled hands)
+            payout_multiplier = 2 if self.doubled else 1
+            
             if self.player_hand.is_bust():
-                return -1*self.bet_size  # Lose bet
+                return -1*self.bet_size * payout_multiplier  # Lose bet
             elif self.dealer_hand.is_bust():
-                return self.bet_size  # Win bet
+                return self.bet_size * payout_multiplier  # Win bet
             elif self.player_hand.is_blackjack() and not self.dealer_hand.is_blackjack():
-                return int(self.bet_size * 1.5)  # Blackjack pays 3:2
+                return int(self.bet_size * 1.5 * payout_multiplier)  # Blackjack pays 3:2
             elif self.dealer_hand.is_blackjack() and not self.player_hand.is_blackjack():
-                return -1*self.bet_size  # Lose bet
+                return -1*self.bet_size * payout_multiplier  # Lose bet
             elif player_value > dealer_value:
-                return self.bet_size  # Win bet
+                return self.bet_size * payout_multiplier  # Win bet
             elif dealer_value > player_value:
-                return -1*self.bet_size  # Lose bet
+                return -1*self.bet_size * payout_multiplier  # Lose bet
             else:
                 return 0  # Push (tie) - return original bet
     
@@ -281,6 +285,7 @@ class BlackjackGame:
         self.current_hand_index = 0
         self.is_split_game = False
         self.bet_size = 0  # Require new bet before dealing
+        self.doubled = False  # Reset doubled flag
         # Do NOT deal cards yet
         return shuffle_notification
 
@@ -294,6 +299,7 @@ class BlackjackGame:
         self.game_over = False
         self.can_double = False
         self.can_split = False
+        self.doubled = False  # Reset doubled flag
         # Deal initial cards
         self.player_hand.add_card(self.deck.deal())
         self.dealer_hand.add_card(self.deck.deal())
@@ -335,6 +341,7 @@ class BlackjackGame:
             current_hand = self.get_current_hand()
             current_hand.add_card(self.deck.deal())
             self.can_double = False
+            self.doubled = True  # Mark that this hand was doubled
             
             if current_hand.is_bust():
                 if self.is_split_game and self.current_hand_index < len(self.split_hands) - 1:
@@ -744,8 +751,14 @@ class BlackjackGUI:
         self.dealer_score_label.config(text=f"Dealer: {self.game.dealer_wins}")
         self.ties_label.config(text=f"Ties: {self.game.ties}")
         self.deck_status_label.config(text=f"Deck: {self.game.deck.get_remaining_cards()}")
-        # Update winnings/losses display
-        self.winnings_label.config(text=f"Winnings: ${self.game.total_winnings}")
+        # Update winnings/losses display with color coding
+        winnings_text = f"Winnings: ${self.game.total_winnings}"
+        if self.game.total_winnings > 0:
+            self.winnings_label.config(text=winnings_text, fg='#00FF00')  # Green for positive
+        elif self.game.total_winnings < 0:
+            self.winnings_label.config(text=winnings_text, fg='#FF0000')  # Red for negative
+        else:
+            self.winnings_label.config(text=winnings_text, fg='#FFFFFF')  # White for zero
         # Update bet info
         if self.game.bet_size > 0:
             self.status_label.config(text=f"Current Bet: ${self.game.bet_size}", fg='yellow')
