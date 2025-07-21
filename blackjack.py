@@ -1,3 +1,7 @@
+# TO-DO:
+# - Add insurance.
+# - Looks like we can't double down on second split hand.
+
 import tkinter as tk
 from tkinter import messagebox, ttk
 import random
@@ -56,8 +60,6 @@ class Deck:
     
     def deal(self) -> Card:
         """Deal one card from the deck."""
-        if not self.cards:
-            self.reset()
         card = self.cards.pop()
         self.running_count += card.get_count_value()
         return card
@@ -351,6 +353,8 @@ class BlackjackGame:
 
     def deal_initial_cards(self):
         """Deal the initial cards after a bet is placed."""
+        if self.deck.should_shuffle():
+            self.deck.reset()
         self.dealer.clear_hand()
         self.game_over = False
         self.can_double = False
@@ -364,7 +368,7 @@ class BlackjackGame:
         # Store count at start of hand
         self.count_at_start = self.deck.running_count
         self.true_count_at_start = self.deck.get_true_count()
-
+        
         # Deal initial cards
         current_hand.add_card(self.deck.deal())
         self.dealer.add_card(self.deck.deal())
