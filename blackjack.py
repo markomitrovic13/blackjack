@@ -273,6 +273,8 @@ class BlackjackGame:
     def log_game_result(self):
         """Log the final game state to terminal."""
         
+        # Log count at start of hand
+        print(f"Count at start of hand: {self.count_at_start} (True: {self.true_count_at_start:.1f})")
         # Log dealer's final hand
         dealer_hand = self.dealer.get_hand()
         dealer_cards = [str(card) for card in dealer_hand.cards]
@@ -358,6 +360,10 @@ class BlackjackGame:
         current_hand = self.player.get_current_hand()
         if not current_hand:
             return
+        
+        # Store count at start of hand
+        self.count_at_start = self.deck.running_count
+        self.true_count_at_start = self.deck.get_true_count()
         
         # Deal initial cards
         current_hand.add_card(self.deck.deal())
