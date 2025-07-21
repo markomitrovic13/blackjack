@@ -56,7 +56,7 @@ class Deck:
     
     def deal(self) -> Card:
         """Deal one card from the deck."""
-        if not self.cards or self.should_shuffle():
+        if not self.cards:
             self.reset()
         card = self.cards.pop()
         self.running_count += card.get_count_value()
@@ -364,7 +364,7 @@ class BlackjackGame:
         # Store count at start of hand
         self.count_at_start = self.deck.running_count
         self.true_count_at_start = self.deck.get_true_count()
-        
+
         # Deal initial cards
         current_hand.add_card(self.deck.deal())
         self.dealer.add_card(self.deck.deal())
